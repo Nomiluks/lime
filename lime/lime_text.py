@@ -365,6 +365,21 @@ class LimeTextExplainer(object):
         self.split_expression = split_expression
         self.char_level = char_level
 
+    def get_sample_perturbations(self, text_instance, num_samples=5000, distance_metric='cosine'):
+        indexed_string = (IndexedCharacters(
+            text_instance, bow=self.bow, mask_string=self.mask_string)
+            if self.char_level else
+            IndexedString(text_instance, bow=self.bow,
+                          split_expression=self.split_expression,
+                          mask_string=self.mask_string))
+        domain_mapper = TextDomainMapper(indexed_string)
+
+        purterbed_samples = self.__data_labels_distances(
+            indexed_string, None, num_samples,
+            distance_metric=distance_metric, prediction=False)
+        
+        return purterbed_samples
+
     def explain_instance(self,
                          text_instance,
                          classifier_fn,
@@ -405,14 +420,15 @@ class LimeTextExplainer(object):
 
         indexed_string = (IndexedCharacters(
             text_instance, bow=self.bow, mask_string=self.mask_string)
-                          if self.char_level else
-                          IndexedString(text_instance, bow=self.bow,
-                                        split_expression=self.split_expression,
-                                        mask_string=self.mask_string))
+            if self.char_level else
+            IndexedString(text_instance, bow=self.bow,
+                          split_expression=self.split_expression,
+                          mask_string=self.mask_string))
         domain_mapper = TextDomainMapper(indexed_string)
         data, yss, distances = self.__data_labels_distances(
             indexed_string, classifier_fn, num_samples,
             distance_metric=distance_metric)
+
         if self.class_names is None:
             self.class_names = [str(x) for x in range(yss[0].shape[0])]
         ret_exp = explanation.Explanation(domain_mapper=domain_mapper,
@@ -437,7 +453,8 @@ class LimeTextExplainer(object):
                                 indexed_string,
                                 classifier_fn,
                                 num_samples,
-                                distance_metric='cosine'):
+                                distance_metric='cosine',
+                                prediction=True):
         """Generates a neighborhood around a prediction.
 
         Generates neighborhood data by randomly removing words from
@@ -480,6 +497,11 @@ class LimeTextExplainer(object):
                                                 replace=False)
             data[i, inactive] = 0
             inverse_data.append(indexed_string.inverse_removing(inactive))
-        labels = classifier_fn(inverse_data)
-        distances = distance_fn(sp.sparse.csr_matrix(data))
-        return data, labels, distances
+
+        print("Perturbated data size: {}".format(len(inverse_data)))
+        if prediction:
+            labels = classifier_fn(inverse_data)
+            distances = distance_fn(sp.sparse.csr_matrix(data))
+            return data, labels, distances
+        else:
+            return inverse_data
