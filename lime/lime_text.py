@@ -377,7 +377,9 @@ class LimeTextExplainer(object):
         purterbed_samples = self.__data_labels_distances(
             indexed_string, None, num_samples,
             distance_metric=distance_metric, prediction=False)
-        
+
+        purterbed_samples = [re.sub(' +', ' ', purterbed_sample).strip()
+                             for purterbed_sample in purterbed_samples]
         return purterbed_samples
 
     def explain_instance(self,
